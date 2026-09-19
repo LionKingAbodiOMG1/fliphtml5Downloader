@@ -1,23 +1,93 @@
 # fliphtml5Downloader
-This Downloads books from fliphtml5
 
-First download, or clone by git clone https://github.com/EngrMoazDev/fliphtml5Downloader
+Download public FlipHTML5 books as images + single PDF from the terminal. Pure Python, no Node required.
 
-Packages requests, os and img2pdf are required to run this script. 
-You can install them with pip like pip install requests, pip install img2pdf, etc.
+Works with both old FlipHTML5 books (`fliphtml5_pages` = plain list) and new books (`fliphtml5_pages` / `bookConfig` = encrypted `v01...` string, e.g. `https://online.fliphtml5.com/ceeok/pkdn/`).
 
-After that in you can run the script in the terminal or by double clicking it.
+New-format books are decrypted with FlipHTML5's own `deString` WASM (`static.fliphtml5.com/.../js/deString.js`) executed locally via the pip package `wasmtime`.
 
-To run in terminal, do the following
+## Requirements
+
+* Python 3.10+
+* pip packages: `requests`, `img2pdf`, `Pillow`, `wasmtime`
+
+## Setup
+
+```bash
+git clone <your-fork-url>
+cd fliphtml5Downloader
+pip install requests img2pdf Pillow wasmtime
+```
+
+No Node, no browser, no API key needed.
+
+## Usage
+
+Interactive mode:
+
+```bash
 python3 fliphtml5Downloader.py
+```
 
-Book Link is the pair of codes which yo can locate in the URL. For example, book name in the url https://fliphtml5.com/hgzok/boba is hgzok/boba.
+You will be prompted:
 
-It will make a folder with the title of book, and place all the images in that folder, and it will make pdf in the folder where your script is located.
+```text
+Enter the book link in the format *****/****:
+```
 
-The name of pdf is the title of the book.
+Enter either the short code or the full URL. All of these work:
 
-A Brief Tutorial can be watched at: https://youtu.be/RNzS0H2hspA
+```text
+ceeok/pkdn
+https://online.fliphtml5.com/ceeok/pkdn/
+https://online.fliphtml5.com/ceeok/pkdn/#p=1
+https://online.fliphtml5.com/ceeok/pkdn/index.html
+```
 
-# Warning
-This is only for educational purposes. It's the very basic version to download. You are free to add more stuff like threading, headers etc in this to speed up or to deal with browser requirements.
+One-shot mode (no prompt):
+
+```bash
+python3 fliphtml5Downloader.py ceeok/pkdn
+python3 fliphtml5Downloader.py https://online.fliphtml5.com/ceeok/pkdn/
+```
+
+Book ID rule: it is the pair after `fliphtml5.com/`. Example: `https://online.fliphtml5.com/hgzok/boba` → `hgzok/boba`.
+
+## What it does
+
+1. Fetches `https://online.fliphtml5.com/<book>/javascript/config.js`.
+2. If `fliphtml5_pages` is encrypted, downloads and caches `.cache/deString.js` once, extracts the embedded WASM, and decodes it with `wasmtime`.
+3. Downloads pages from `files/large/<hash>.webp` (with `.jpg`, `medium`, `thumb` fallbacks).
+4. Saves images to a folder named after the book title, e.g.:
+   `AI Engineering Building Applications with Foundation Models (Chip Huyen) (Z-Library)/1.webp ... 535.webp`
+5. Converts WebP → JPEG in memory with `Pillow` and merges to `<title>.pdf` with `img2pdf`.
+
+Example output for `ceeok/pkdn` (535 pages):
+
+```text
+Book: ceeok/pkdn
+Encrypted fliphtml5_pages detected, decoding with wasmtime (no Node)...
+Found 535 pages
+Downloading Page 1 / 535 .....
+...
+Downloading Complete. Don't Close, hold-on. We are yet to make PDF.
+The pdf named AI Engineering ....pdf has been saved in your working directory.
+```
+
+## Troubleshooting
+
+* `TypeError: string indices must be integers, not 'str'` — you are on the old script. Pull the latest version, this is fixed by WASM decoding.
+* `pip package 'wasmtime' is required` → `pip install wasmtime`.
+* `failed ... (http:404)` on some pages — script already tries `large` → `jpg/webp` swap → `medium` → `thumb`. If all fail, that page is skipped and reported.
+* `Nothing downloaded, PDF not created` — book is private, removed, or FlipHTML5 changed format again. Open an issue with the book ID.
+* Large books (500+ pages) take several minutes and use ~500MB+ disk. Make sure you have space.
+
+## Notes
+
+* Original tutorial: https://youtu.be/RNzS0H2hspA
+* Related issue example using `archive.alsharekh.org` mobile config is kept in `issue1.py` (separate site, separate logic).
+* Only download books you have the right to download.
+
+## Disclaimer
+
+For educational purposes only. Respect copyright and FlipHTML5 terms of service.
